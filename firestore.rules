@@ -1,0 +1,144 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required)
+//   - name: string (required)
+//   - email: string (required, email format)
+//   - batch: number (required, 1 or 2)
+//   - squad: number (required)
+//   - role: string (required, 'admin' or 'user')
+//
+// Collection: seats
+// Document ID: {seatId}
+// Fields:
+//   - id: string (required)
+//   - label: string (required)
+//   - type: string (required, 'fixed' or 'floater')
+//   - x: number (required)
+//   - y: number (required)
+//
+// Collection: bookings
+// Document ID: {bookingId}
+// Fields:
+//   - id: string (required)
+//   - userId: string (required)
+//   - userName: string (optional)
+//   - seatId: string (required)
+//   - seatLabel: string (optional)
+//   - date: string (required, YYYY-MM-DD)
+//   - status: string (required, 'active' or 'cancelled')
+//   - createdAt: timestamp (required)
+//
+// Collection: holidays
+// Document ID: {holidayId}
+// Fields:
+//   - id: string (required)
+//   - date: string (required, YYYY-MM-DD)
+//   - description: string (required)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "vishalprajapati7090@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'batch', 'squad', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.batch in [1, 2] &&
+             data.squad is number &&
+             data.role in ['admin', 'user'];
+    }
+
+    function isValidBooking(data) {
+      return data.keys().hasAll(['id', 'userId', 'seatId', 'date', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             isValidDateString(data.date) &&
+             data.status in ['active', 'cancelled'] &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
+      allow update: if (isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /seats/{seatId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated();
+      
+      // Booking rules:
+      // 1. Must be authenticated
+      // 2. Must be the owner of the booking
+      // 3. Must be a valid booking structure
+      // 4. Booking for future dates only (simplified check in app, but rules can enforce basic constraints)
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid && 
+                      isValidBooking(request.resource.data) &&
+                      // Prevent double booking for same user on same date (requires query validation in app, but we can check if doc exists if we use date_uid as ID)
+                      true; 
+      
+      allow update: if isAuthenticated() && 
+                      (resource.data.userId == request.auth.uid || isAdmin()) &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+                      request.resource.data.status in ['active', 'cancelled'];
+                      
+      allow delete: if isAdmin();
+    }
+
+    match /holidays/{holidayId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

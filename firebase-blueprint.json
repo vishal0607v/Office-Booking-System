@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Employee profile with batch and squad assignment",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "batch": { "type": "number", "enum": [1, 2] },
+        "squad": { "type": "number" },
+        "role": { "type": "string", "enum": ["admin", "user"] }
+      },
+      "required": ["uid", "name", "email", "batch", "squad", "role"]
+    },
+    "Seat": {
+      "title": "Seat",
+      "description": "Office seat configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "type": { "type": "string", "enum": ["fixed", "floater"] },
+        "x": { "type": "number" },
+        "y": { "type": "number" }
+      },
+      "required": ["id", "label", "type", "x", "y"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Seat reservation record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "seatId": { "type": "string" },
+        "seatLabel": { "type": "string" },
+        "date": { "type": "string", "description": "YYYY-MM-DD format" },
+        "status": { "type": "string", "enum": ["active", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "seatId", "date", "status", "createdAt"]
+    },
+    "Holiday": {
+      "title": "Holiday",
+      "description": "Predefined office holidays",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "description": "YYYY-MM-DD format" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "date", "description"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/seats/{seatId}": {
+      "schema": "Seat",
+      "description": "Office seats"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Seat reservations"
+    },
+    "/holidays/{holidayId}": {
+      "schema": "Holiday",
+      "description": "Office holidays"
+    }
+  }
+}

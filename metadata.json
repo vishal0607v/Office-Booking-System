@@ -1,0 +1,6 @@
+{
+  "name": "SeatSync: Hybrid Office Booking",
+  "description": "A real-time hybrid office seat booking system with rotating batch schedules, visual seat maps, and automated booking constraints.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
